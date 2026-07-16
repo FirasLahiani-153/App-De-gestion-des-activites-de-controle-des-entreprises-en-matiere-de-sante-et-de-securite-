@@ -1,18 +1,41 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from './contexts/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
+import AdminLayout from './components/AdminLayout'
+import Login from './pages/Login'
+import Register from './pages/Register'
+import Dashboard from './pages/Dashboard'
+import Users from './pages/Users'
+import Entreprises from './pages/Entreprises'
+import Visites from './pages/Visites'
+import Rapports from './pages/Rapports'
+import Infractions from './pages/Infractions'
+import Documents from './pages/Documents'
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <h1 class="text-3xl font-bold underline">
-    Hello world! my name is firas سلام عليكم
-  </h1>
-    </>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          
+          <Route path="/" element={<ProtectedRoute />}>
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            
+            <Route path="dashboard" element={<AdminLayout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="users" element={<Users />} />
+              <Route path="entreprises" element={<Entreprises />} />
+              <Route path="visites" element={<Visites />} />
+              <Route path="rapports" element={<Rapports />} />
+              <Route path="infractions" element={<Infractions />} />
+              <Route path="documents" element={<Documents />} />
+            </Route>
+          </Route>
+        </Routes>
+      </Router>
+    </AuthProvider>
   )
 }
 
