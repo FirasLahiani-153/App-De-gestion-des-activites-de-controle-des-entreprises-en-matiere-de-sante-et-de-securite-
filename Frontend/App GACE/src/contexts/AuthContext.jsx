@@ -42,8 +42,24 @@ export function AuthProvider({ children }) {
     setUser(data.user)
   }
 
+  /**
+   * Check if the current user has a given permission.
+   * Mirrors the backend's Spatie permission names exactly
+   * (e.g. 'voir-utilisateurs', 'creer-entreprises').
+   */
+  const can = (permission) => {
+    if (!user || !Array.isArray(user.permissions)) return false
+    return user.permissions.includes(permission)
+  }
+
+  /**
+   * Check if the current user has a given role.
+   * Prefer `can()` for access control — roles can change composition later.
+   */
+  const hasRole = (role) => user?.role === role
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser, can, hasRole }}>
       {children}
     </AuthContext.Provider>
   )

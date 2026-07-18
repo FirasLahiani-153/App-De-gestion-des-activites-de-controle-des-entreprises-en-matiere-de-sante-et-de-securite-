@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import RequirePermission from './components/RequirePermission'
 import AdminLayout from './components/AdminLayout'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -19,17 +20,36 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          
+
           <Route path="/" element={<ProtectedRoute />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
-            
+
             <Route path="dashboard" element={<AdminLayout />}>
               <Route index element={<Dashboard />} />
-              <Route path="users" element={<Users />} />
-              <Route path="entreprises" element={<Entreprises />} />
-              <Route path="visites" element={<Visites />} />
-              <Route path="rapports" element={<Rapports />} />
-              <Route path="infractions" element={<Infractions />} />
+
+              {/* Each permission below mirrors the backend controller's middleware exactly. */}
+              <Route element={<RequirePermission permission="voir-utilisateurs" />}>
+                <Route path="users" element={<Users />} />
+              </Route>
+
+              <Route element={<RequirePermission permission="voir-entreprises" />}>
+                <Route path="entreprises" element={<Entreprises />} />
+              </Route>
+
+              <Route element={<RequirePermission permission="voir-inspections" />}>
+                <Route path="visites" element={<Visites />} />
+              </Route>
+
+              <Route element={<RequirePermission permission="voir-rapports" />}>
+                <Route path="rapports" element={<Rapports />} />
+              </Route>
+
+              <Route element={<RequirePermission permission="voir-nonconformites" />}>
+                <Route path="infractions" element={<Infractions />} />
+              </Route>
+
+              {/* No 'voir-documents' permission exists yet in the seeder — left unguarded
+                  until we fix DocumentController (flagged gap from the audit). */}
               <Route path="documents" element={<Documents />} />
             </Route>
           </Route>

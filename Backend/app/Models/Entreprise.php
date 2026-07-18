@@ -10,6 +10,7 @@ class Entreprise extends Model
         'raison_sociale',
         'matricule_fiscale',
         'secteur_activite',
+        'effectif',
         'adresse',
         'ville',
         'code_postal',
@@ -17,10 +18,12 @@ class Entreprise extends Model
         'email_contact',
         'nom_contact',
         'is_active',
+        'niveau_risque',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'effectif' => 'integer',
     ];
 
     public function visites()

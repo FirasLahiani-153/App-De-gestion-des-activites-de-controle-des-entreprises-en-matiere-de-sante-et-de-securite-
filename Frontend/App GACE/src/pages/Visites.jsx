@@ -2,34 +2,48 @@ import { useState, useEffect } from 'react'
 import api from '../api'
 import { Plus, Trash2 } from 'lucide-react'
 
+const STATUT_BADGE = {
+  'programmée': 'bg-blue-100 text-blue-700',
+  'en_cours': 'bg-amber-100 text-amber-700',
+  'réalisée': 'bg-green-100 text-green-700',
+  'reportée': 'bg-slate-200 text-slate-700',
+  'annulée': 'bg-red-100 text-red-700',
+}
+
+const emptyForm = {
+  entreprise_id: '',
+  inspecteur_id: '',
+  type_visite: 'initiale',
+  statut: 'programmée',
+  date_prevue: '',
+}
+
 export default function Visites() {
   const [visites, setVisites] = useState([])
+  const [meta, setMeta] = useState({ current_page: 1, last_page: 1 })
+  const [statutFilter, setStatutFilter] = useState('')
   const [entreprises, setEntreprises] = useState([])
   const [inspecteurs, setInspecteurs] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [formData, setFormData] = useState({ 
-    entreprise_id: '', 
-    inspecteur_id: '', 
-    type_visite: 'initiale', 
-    statut: 'programmée',
-    date_prevue: ''
-  })
+  const [formData, setFormData] = useState(emptyForm)
 
   useEffect(() => {
-    fetchData()
+    fetchData(1)
   }, [])
 
-  const fetchData = async () => {
+  const fetchData = async (page = 1, statut = statutFilter) => {
+    setLoading(true)
     try {
       const [vRes, eRes, iRes] = await Promise.all([
-        api.get('/visites'),
-        api.get('/entreprises'),
-        api.get('/users') // We should ideally filter by role inspecteur
+        api.get('/visites', { params: { page, statut: statut || undefined } }),
+        api.get('/entreprises', { params: { per_page: 100 } }),
+        api.get('/users'),
       ])
-      setVisites(vRes.data)
-      setEntreprises(eRes.data)
-      setInspecteurs(iRes.data.filter(u => u.roles?.some(r => r.name === 'inspecteur') || true)) // fallback
+      setVisites(vRes.data.data)
+      setMeta({ current_page: vRes.data.current_page, last_page: vRes.data.last_page })
+      setEntreprises(eRes.data.data)
+      setInspecteurs(iRes.data.filter(u => u.roles?.some(r => r.name === 'inspecteur')))
     } catch (err) {
       console.error(err)
     } finally {
@@ -37,14 +51,20 @@ export default function Visites() {
     }
   }
 
+  const handleFilterChange = (statut) => {
+    setStatutFilter(statut)
+    fetchData(1, statut)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
       await api.post('/visites', formData)
       setShowForm(false)
-      fetchData()
+      setFormData(emptyForm)
+      fetchData(meta.current_page)
     } catch (err) {
-      alert('Erreur lors de la création')
+      alert(err.response?.data?.message || 'Erreur lors de la création')
     }
   }
 
@@ -52,24 +72,36 @@ export default function Visites() {
     if (!confirm('Voulez-vous supprimer cette visite ?')) return
     try {
       await api.delete(`/visites/${id}`)
-      fetchData()
+      fetchData(meta.current_page)
     } catch (err) {
       alert('Erreur')
     }
   }
 
-  if (loading) return <div>Chargement...</div>
+  if (loading && visites.length === 0) return <div>Chargement...</div>
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold text-slate-800">Gestion des Visites</h2>
-        <button 
+        <button
           onClick={() => setShowForm(true)}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
         >
           <Plus className="w-4 h-4" /> Programmer une visite
         </button>
+      </div>
+
+      <div className="flex gap-2">
+        {['', 'programmée', 'en_cours', 'réalisée', 'reportée', 'annulée'].map(s => (
+          <button
+            key={s || 'all'}
+            onClick={() => handleFilterChange(s)}
+            className={`px-3 py-1.5 rounded-lg text-sm border ${statutFilter === s ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-200 text-slate-600'}`}
+          >
+            {s === '' ? 'Toutes' : s}
+          </button>
+        ))}
       </div>
 
       {showForm && (
@@ -79,7 +111,7 @@ export default function Visites() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Entreprise</label>
-                <select required className="w-full border p-2 rounded" 
+                <select required className="w-full border p-2 rounded"
                   value={formData.entreprise_id} onChange={e => setFormData({...formData, entreprise_id: e.target.value})}>
                   <option value="">Sélectionner...</option>
                   {entreprises.map(e => <option key={e.id} value={e.id}>{e.raison_sociale}</option>)}
@@ -87,7 +119,7 @@ export default function Visites() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Inspecteur</label>
-                <select required className="w-full border p-2 rounded" 
+                <select required className="w-full border p-2 rounded"
                   value={formData.inspecteur_id} onChange={e => setFormData({...formData, inspecteur_id: e.target.value})}>
                   <option value="">Sélectionner...</option>
                   {inspecteurs.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
@@ -95,7 +127,7 @@ export default function Visites() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Type de visite</label>
-                <select className="w-full border p-2 rounded" 
+                <select className="w-full border p-2 rounded"
                   value={formData.type_visite} onChange={e => setFormData({...formData, type_visite: e.target.value})}>
                   <option value="initiale">Initiale</option>
                   <option value="suivi">De suivi</option>
@@ -104,11 +136,11 @@ export default function Visites() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Date Prévue</label>
-                <input required type="datetime-local" className="w-full border p-2 rounded" 
+                <input required type="datetime-local" className="w-full border p-2 rounded"
                   value={formData.date_prevue} onChange={e => setFormData({...formData, date_prevue: e.target.value})} />
               </div>
               <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-slate-600">Annuler</button>
+                <button type="button" onClick={() => { setShowForm(false); setFormData(emptyForm) }} className="px-4 py-2 text-slate-600">Annuler</button>
                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Enregistrer</button>
               </div>
             </form>
@@ -129,6 +161,9 @@ export default function Visites() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
+            {visites.length === 0 && (
+              <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-400">Aucune visite trouvée</td></tr>
+            )}
             {visites.map(v => (
               <tr key={v.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4 font-medium text-slate-900">{v.entreprise?.raison_sociale}</td>
@@ -136,7 +171,7 @@ export default function Visites() {
                 <td className="px-6 py-4 capitalize">{v.type_visite}</td>
                 <td className="px-6 py-4">{new Date(v.date_prevue).toLocaleDateString('fr-FR')}</td>
                 <td className="px-6 py-4 capitalize">
-                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUT_BADGE[v.statut] || 'bg-slate-100 text-slate-600'}`}>
                     {v.statut}
                   </span>
                 </td>
@@ -151,6 +186,26 @@ export default function Visites() {
             ))}
           </tbody>
         </table>
+
+        {meta.last_page > 1 && (
+          <div className="flex justify-between items-center px-6 py-3 border-t border-slate-200 text-sm text-slate-600">
+            <button
+              disabled={meta.current_page <= 1}
+              onClick={() => fetchData(meta.current_page - 1)}
+              className="px-3 py-1 rounded border border-slate-200 disabled:opacity-40"
+            >
+              Précédent
+            </button>
+            <span>Page {meta.current_page} / {meta.last_page}</span>
+            <button
+              disabled={meta.current_page >= meta.last_page}
+              onClick={() => fetchData(meta.current_page + 1)}
+              className="px-3 py-1 rounded border border-slate-200 disabled:opacity-40"
+            >
+              Suivant
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

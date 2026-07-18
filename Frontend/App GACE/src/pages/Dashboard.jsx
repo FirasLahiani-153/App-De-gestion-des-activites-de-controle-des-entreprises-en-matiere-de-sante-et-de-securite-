@@ -9,7 +9,7 @@ export default function Dashboard() {
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
           <h3 className="text-sm font-medium text-slate-500 mb-1">Rôle actuel</h3>
           <p className="text-2xl font-semibold text-slate-800 capitalize">
-            {user?.roles?.[0]?.name || 'Non défini'}
+            {user?.role || 'Non défini'}
           </p>
         </div>
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
