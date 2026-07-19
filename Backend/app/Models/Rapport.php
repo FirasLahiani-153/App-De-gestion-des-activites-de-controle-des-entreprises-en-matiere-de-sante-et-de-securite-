@@ -13,10 +13,13 @@ class Rapport extends Model
         'statut',
         'resume',
         'pdf_path',
+        'validated_by',
+        'validated_at',
     ];
 
     protected $casts = [
         'date_redaction' => 'datetime',
+        'validated_at' => 'datetime',
     ];
 
     public function visite()
@@ -27,5 +30,10 @@ class Rapport extends Model
     public function infractions()
     {
         return $this->hasMany(Infraction::class);
+    }
+
+    public function validator()
+    {
+        return $this->belongsTo(User::class, 'validated_by');
     }
 }

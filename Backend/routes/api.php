@@ -30,6 +30,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('entreprises', \App\Http\Controllers\Api\EntrepriseController::class);
     Route::apiResource('visites', \App\Http\Controllers\Api\VisiteController::class);
     Route::apiResource('rapports', \App\Http\Controllers\Api\RapportController::class);
+    Route::post('rapports/{rapport}/valider', [\App\Http\Controllers\Api\RapportController::class, 'valider'])
+    ->name('rapports.valider');
     Route::apiResource('infractions', \App\Http\Controllers\Api\InfractionController::class);
     Route::apiResource('documents', \App\Http\Controllers\Api\DocumentController::class);
 });
