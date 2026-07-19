@@ -26,10 +26,10 @@ export default function Documents() {
     try {
       const [dRes, eRes] = await Promise.all([
         api.get('/documents'),
-        api.get('/entreprises')
+        api.get('/entreprises', { params: { per_page: 100 } })
       ])
       setDocuments(dRes.data)
-      setEntreprises(eRes.data)
+      setEntreprises(eRes.data.data)
     } catch (err) {
       console.error(err)
     } finally {

@@ -109,7 +109,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'voir-entreprises',
 
             'voir-inspections',
-
+            'supprimer-inspections',
+            
             'voir-rapports',
             'valider-rapports',
             'exporter-rapports',

@@ -28,6 +28,13 @@ class VisiteController extends Controller implements HasMiddleware
     {
         $query = Visite::with(['entreprise:id,raison_sociale', 'inspecteur:id,name']);
 
+        // Ownership scoping: an inspecteur only sees their own visits.
+        // admin/responsable see everything (they have oversight permissions).
+        $user = $request->user();
+        if ($user->hasRole('inspecteur') && ! $user->hasAnyRole(['admin', 'responsable'])) {
+            $query->where('inspecteur_id', $user->id);
+        }
+
         if ($request->filled('statut')) {
             $query->where('statut', $request->string('statut'));
         }
@@ -36,7 +43,9 @@ class VisiteController extends Controller implements HasMiddleware
             $query->where('entreprise_id', $request->integer('entreprise_id'));
         }
 
-        if ($request->filled('inspecteur_id')) {
+        // Only admin/responsable are allowed to filter by an arbitrary inspecteur;
+        // an inspecteur is already scoped to themselves above.
+        if ($request->filled('inspecteur_id') && ! $user->hasRole('inspecteur')) {
             $query->where('inspecteur_id', $request->integer('inspecteur_id'));
         }
 
@@ -45,48 +54,101 @@ class VisiteController extends Controller implements HasMiddleware
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $rules = [
             'entreprise_id' => 'required|exists:entreprises,id',
-            'inspecteur_id' => 'required|exists:users,id',
             'type_visite' => ['required', Rule::in(self::TYPES)],
             'statut' => ['sometimes', Rule::in(self::STATUTS)],
             'date_prevue' => 'required|date',
             'date_realisation' => 'nullable|date',
             'objectif' => 'nullable|string',
-        ]);
+        ];
+
+        $user = $request->user();
+        $isInspecteurOnly = $user->hasRole('inspecteur') && ! $user->hasAnyRole(['admin', 'responsable']);
+
+        // Only admin/responsable may assign an arbitrary inspecteur; otherwise it's forced to self.
+        if (! $isInspecteurOnly) {
+            $rules['inspecteur_id'] = 'required|exists:users,id';
+        }
+
+        $validated = $request->validate($rules);
+
+        $validated['inspecteur_id'] = $isInspecteurOnly ? $user->id : $validated['inspecteur_id'];
 
         $visite = Visite::create($validated);
 
         return response()->json($visite->load(['entreprise:id,raison_sociale', 'inspecteur:id,name']), 201);
     }
 
-    public function show(string $id)
+    public function show(Request $request, string $id)
     {
-        return Visite::with(['entreprise', 'inspecteur:id,name,email', 'rapports'])->findOrFail($id);
+        $visite = Visite::with(['entreprise', 'inspecteur:id,name,email', 'rapports'])->findOrFail($id);
+
+        $user = $request->user();
+        if ($user->hasRole('inspecteur') && ! $user->hasAnyRole(['admin', 'responsable']) && $visite->inspecteur_id !== $user->id) {
+            abort(403, "Vous n'avez pas accès à cette visite.");
+        }
+
+        return $visite;
     }
 
     public function update(Request $request, string $id)
     {
         $visite = Visite::findOrFail($id);
 
-        $validated = $request->validate([
+        $user = $request->user();
+        $isInspecteurOnly = $user->hasRole('inspecteur') && ! $user->hasAnyRole(['admin', 'responsable']);
+
+        if ($isInspecteurOnly && $visite->inspecteur_id !== $user->id) {
+            abort(403, "Vous ne pouvez modifier que vos propres visites.");
+        }
+
+        $rules = [
             'entreprise_id' => 'sometimes|exists:entreprises,id',
-            'inspecteur_id' => 'sometimes|exists:users,id',
             'type_visite' => ['sometimes', Rule::in(self::TYPES)],
             'statut' => ['sometimes', Rule::in(self::STATUTS)],
             'date_prevue' => 'sometimes|date',
             'date_realisation' => 'nullable|date',
             'objectif' => 'nullable|string',
-        ]);
+        ];
+
+        // An inspecteur can't reassign a visit to someone else.
+        if (! $isInspecteurOnly) {
+            $rules['inspecteur_id'] = 'sometimes|exists:users,id';
+        }
+
+        $validated = $request->validate($rules);
+
+        // Postponing a visit isn't just a status flip — it needs a new planned date,
+        // otherwise "reportée" carries no useful information for rescheduling.
+        if (($validated['statut'] ?? null) === 'reportée' && empty($validated['date_prevue'])) {
+            return response()->json([
+                'message' => 'Une nouvelle date prévue est requise pour reporter une visite.',
+                'errors' => ['date_prevue' => ['Ce champ est obligatoire lorsque le statut est "reportée".']],
+            ], 422);
+        }
+
+        // Convenience: if marking a visit as done and no completion date was given,
+        // record it as "now" so inspectors don't have to fill it in manually.
+        if (($validated['statut'] ?? null) === 'réalisée' && empty($validated['date_realisation']) && empty($visite->date_realisation)) {
+            $validated['date_realisation'] = now();
+        }
 
         $visite->update($validated);
 
         return response()->json($visite->fresh()->load(['entreprise:id,raison_sociale', 'inspecteur:id,name']));
     }
 
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id)
     {
-        Visite::findOrFail($id)->delete();
+        $visite = Visite::findOrFail($id);
+
+        $user = $request->user();
+        if ($user->hasRole('inspecteur') && ! $user->hasAnyRole(['admin', 'responsable']) && $visite->inspecteur_id !== $user->id) {
+            abort(403, "Vous ne pouvez supprimer que vos propres visites.");
+        }
+
+        $visite->delete();
 
         return response()->json(null, 204);
     }

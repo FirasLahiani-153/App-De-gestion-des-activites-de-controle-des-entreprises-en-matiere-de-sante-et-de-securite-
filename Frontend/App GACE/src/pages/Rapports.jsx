@@ -25,6 +25,22 @@ export default function Rapports() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState(emptyForm)
+  const [viewingRapport, setViewingRapport] = useState(null) // full detail object, or null when closed
+  const [viewLoading, setViewLoading] = useState(false)
+
+  const openDetail = async (id) => {
+    setViewLoading(true)
+    setViewingRapport({}) // opens the modal immediately with a loading state
+    try {
+      const { data } = await api.get(`/rapports/${id}`)
+      setViewingRapport(data)
+    } catch (err) {
+      alert(err.response?.data?.message || 'Erreur lors du chargement du rapport')
+      setViewingRapport(null)
+    } finally {
+      setViewLoading(false)
+    }
+  }
 
   useEffect(() => {
     fetchData(1)
@@ -136,6 +152,73 @@ export default function Rapports() {
         </div>
       )}
 
+      {viewingRapport && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+            {viewLoading || !viewingRapport.id ? (
+              <div className="py-8 text-center text-slate-400">Chargement...</div>
+            ) : (
+              <>
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">{viewingRapport.reference}</h3>
+                    <span className={`inline-block mt-1 px-2 py-1 rounded-full text-xs font-medium capitalize ${STATUT_BADGE[viewingRapport.statut] || 'bg-slate-100 text-slate-600'}`}>
+                      {viewingRapport.statut?.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <button onClick={() => setViewingRapport(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">
+                    &times;
+                  </button>
+                </div>
+
+                <dl className="space-y-3 text-sm">
+                  <div>
+                    <dt className="text-slate-500">Entreprise</dt>
+                    <dd className="text-slate-900 font-medium">{viewingRapport.visite?.entreprise?.raison_sociale || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Inspecteur</dt>
+                    <dd className="text-slate-900">{viewingRapport.visite?.inspecteur?.name || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Date de rédaction</dt>
+                    <dd className="text-slate-900">{new Date(viewingRapport.date_redaction).toLocaleDateString('fr-FR')}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Résumé / Conclusion</dt>
+                    <dd className="text-slate-900 whitespace-pre-wrap">{viewingRapport.resume || 'Aucun résumé fourni.'}</dd>
+                  </div>
+                  {viewingRapport.infractions?.length > 0 && (
+                    <div>
+                      <dt className="text-slate-500 mb-1">Infractions relevées</dt>
+                      <dd className="space-y-1">
+                        {viewingRapport.infractions.map(inf => (
+                          <div key={inf.id} className="bg-slate-50 rounded-lg px-3 py-2 text-slate-700">
+                            <span className="font-medium capitalize">{inf.gravite}</span> — {inf.description}
+                          </div>
+                        ))}
+                      </dd>
+                    </div>
+                  )}
+                  {viewingRapport.validator && (
+                    <div>
+                      <dt className="text-slate-500">Validé par</dt>
+                      <dd className="text-slate-900">
+                        {viewingRapport.validator.name} le {new Date(viewingRapport.validated_at).toLocaleDateString('fr-FR')}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+
+                <div className="flex justify-end mt-6">
+                  <button onClick={() => setViewingRapport(null)} className="px-4 py-2 text-slate-600">Fermer</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <table className="w-full text-left text-sm text-slate-600">
           <thead className="bg-slate-50 border-b border-slate-200 text-slate-800">
@@ -156,7 +239,15 @@ export default function Rapports() {
               const locked = r.statut === 'validé' || r.statut === 'envoyé'
               return (
                 <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-slate-900">{r.reference}</td>
+                  <td className="px-6 py-4 font-medium">
+                    <button
+                      onClick={() => openDetail(r.id)}
+                      className="text-blue-600 hover:underline"
+                      title="Voir le rapport"
+                    >
+                      {r.reference}
+                    </button>
+                  </td>
                   <td className="px-6 py-4">{r.visite?.entreprise?.raison_sociale}</td>
                   <td className="px-6 py-4">{new Date(r.date_redaction).toLocaleDateString('fr-FR')}</td>
                   <td className="px-6 py-4 capitalize">

@@ -24,12 +24,12 @@ export default function Infractions() {
     try {
       const [iRes, rRes, eRes] = await Promise.all([
         api.get('/infractions'),
-        api.get('/rapports'),
-        api.get('/entreprises')
+        api.get('/rapports', { params: { per_page: 100 } }),
+        api.get('/entreprises', { params: { per_page: 100 } })
       ])
       setInfractions(iRes.data)
-      setRapports(rRes.data)
-      setEntreprises(eRes.data)
+      setRapports(rRes.data.data)
+      setEntreprises(eRes.data.data)
     } catch (err) {
       console.error(err)
     } finally {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '../api'
 import { Plus, Trash2 } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 
 const STATUT_BADGE = {
   'programmée': 'bg-blue-100 text-blue-700',
@@ -19,6 +20,10 @@ const emptyForm = {
 }
 
 export default function Visites() {
+  const { user, can } = useAuth()
+  // Only admin/responsable get to assign a specific inspecteur — inspecteurs are auto-assigned to themselves.
+  const canAssignInspecteur = can('voir-utilisateurs')
+
   const [visites, setVisites] = useState([])
   const [meta, setMeta] = useState({ current_page: 1, last_page: 1 })
   const [statutFilter, setStatutFilter] = useState('')
@@ -27,6 +32,7 @@ export default function Visites() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState(emptyForm)
+  const [postponeTarget, setPostponeTarget] = useState(null) // { id, date } or null when closed
 
   useEffect(() => {
     fetchData(1)
@@ -35,15 +41,23 @@ export default function Visites() {
   const fetchData = async (page = 1, statut = statutFilter) => {
     setLoading(true)
     try {
-      const [vRes, eRes, iRes] = await Promise.all([
+      const calls = [
         api.get('/visites', { params: { page, statut: statut || undefined } }),
         api.get('/entreprises', { params: { per_page: 100 } }),
-        api.get('/users'),
-      ])
-      setVisites(vRes.data.data)
-      setMeta({ current_page: vRes.data.current_page, last_page: vRes.data.last_page })
-      setEntreprises(eRes.data.data)
-      setInspecteurs(iRes.data.filter(u => u.roles?.some(r => r.name === 'inspecteur')))
+      ]
+      // Only fetch the full user list if we actually need it for the assignment dropdown —
+      // an inspecteur doesn't have 'voir-utilisateurs' and doesn't need this anyway.
+      if (canAssignInspecteur) {
+        calls.push(api.get('/users'))
+      }
+
+      const results = await Promise.all(calls)
+      setVisites(results[0].data.data)
+      setMeta({ current_page: results[0].data.current_page, last_page: results[0].data.last_page })
+      setEntreprises(results[1].data.data)
+      if (canAssignInspecteur) {
+        setInspecteurs(results[2].data.filter(u => u.roles?.some(r => r.name === 'inspecteur')))
+      }
     } catch (err) {
       console.error(err)
     } finally {
@@ -59,7 +73,9 @@ export default function Visites() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      await api.post('/visites', formData)
+      const payload = { ...formData }
+      if (!canAssignInspecteur) delete payload.inspecteur_id // backend auto-assigns to self
+      await api.post('/visites', payload)
       setShowForm(false)
       setFormData(emptyForm)
       fetchData(meta.current_page)
@@ -74,7 +90,48 @@ export default function Visites() {
       await api.delete(`/visites/${id}`)
       fetchData(meta.current_page)
     } catch (err) {
-      alert('Erreur')
+      alert(err.response?.data?.message || 'Erreur')
+    }
+  }
+
+  // Lets an inspecteur (on their own visits) or admin/responsable record the real outcome:
+  // the visit happened, got postponed, or was cancelled.
+  const handleStatutChange = async (id, statut) => {
+    // Postponing needs a new planned date — open the calendar modal instead of
+    // firing the request immediately (the backend requires date_prevue for this).
+    if (statut === 'reportée') {
+      const currentVisite = visites.find(v => v.id === id)
+      setPostponeTarget({
+        id,
+        date: currentVisite?.date_prevue ? currentVisite.date_prevue.slice(0, 16) : '',
+      })
+      return
+    }
+
+    try {
+      await api.put(`/visites/${id}`, { statut })
+      fetchData(meta.current_page)
+    } catch (err) {
+      const errors = err.response?.data?.errors
+      const msg = errors ? Object.values(errors).flat().join(' ') : err.response?.data?.message
+      alert(msg || 'Erreur lors de la mise à jour du statut')
+    }
+  }
+
+  const confirmPostpone = async (e) => {
+    e.preventDefault()
+    if (!postponeTarget?.date) return
+    try {
+      await api.put(`/visites/${postponeTarget.id}`, {
+        statut: 'reportée',
+        date_prevue: postponeTarget.date,
+      })
+      setPostponeTarget(null)
+      fetchData(meta.current_page)
+    } catch (err) {
+      const errors = err.response?.data?.errors
+      const msg = errors ? Object.values(errors).flat().join(' ') : err.response?.data?.message
+      alert(msg || 'Erreur lors du report de la visite')
     }
   }
 
@@ -83,7 +140,9 @@ export default function Visites() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-slate-800">Gestion des Visites</h2>
+        <h2 className="text-xl font-semibold text-slate-800">
+          {canAssignInspecteur ? 'Gestion des Visites' : 'Mes Visites'}
+        </h2>
         <button
           onClick={() => setShowForm(true)}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
@@ -117,14 +176,20 @@ export default function Visites() {
                   {entreprises.map(e => <option key={e.id} value={e.id}>{e.raison_sociale}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Inspecteur</label>
-                <select required className="w-full border p-2 rounded"
-                  value={formData.inspecteur_id} onChange={e => setFormData({...formData, inspecteur_id: e.target.value})}>
-                  <option value="">Sélectionner...</option>
-                  {inspecteurs.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-                </select>
-              </div>
+              {canAssignInspecteur ? (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Inspecteur</label>
+                  <select required className="w-full border p-2 rounded"
+                    value={formData.inspecteur_id} onChange={e => setFormData({...formData, inspecteur_id: e.target.value})}>
+                    <option value="">Sélectionner...</option>
+                    {inspecteurs.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                  </select>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
+                  Cette visite vous sera automatiquement assignée ({user?.name}).
+                </p>
+              )}
               <div>
                 <label className="block text-sm font-medium mb-1">Type de visite</label>
                 <select className="w-full border p-2 rounded"
@@ -142,6 +207,35 @@ export default function Visites() {
               <div className="flex justify-end gap-2 mt-6">
                 <button type="button" onClick={() => { setShowForm(false); setFormData(emptyForm) }} className="px-4 py-2 text-slate-600">Annuler</button>
                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Enregistrer</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {postponeTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl w-full max-w-sm">
+            <h3 className="text-lg font-bold mb-1">Reporter la visite</h3>
+            <p className="text-sm text-slate-500 mb-4">Choisissez la nouvelle date et heure prévue.</p>
+            <form onSubmit={confirmPostpone} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Nouvelle date prévue</label>
+                <input
+                  required
+                  type="datetime-local"
+                  className="w-full border p-2 rounded"
+                  value={postponeTarget.date}
+                  onChange={e => setPostponeTarget({ ...postponeTarget, date: e.target.value })}
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-2">
+                <button type="button" onClick={() => setPostponeTarget(null)} className="px-4 py-2 text-slate-600">
+                  Annuler
+                </button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">
+                  Confirmer le report
+                </button>
               </div>
             </form>
           </div>
@@ -170,16 +264,26 @@ export default function Visites() {
                 <td className="px-6 py-4">{v.inspecteur?.name}</td>
                 <td className="px-6 py-4 capitalize">{v.type_visite}</td>
                 <td className="px-6 py-4">{new Date(v.date_prevue).toLocaleDateString('fr-FR')}</td>
-                <td className="px-6 py-4 capitalize">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUT_BADGE[v.statut] || 'bg-slate-100 text-slate-600'}`}>
-                    {v.statut}
-                  </span>
+                <td className="px-6 py-4">
+                  <select
+                    value={v.statut}
+                    onChange={e => handleStatutChange(v.id, e.target.value)}
+                    className={`px-2 py-1 rounded-full text-xs font-medium border-0 capitalize cursor-pointer ${STATUT_BADGE[v.statut] || 'bg-slate-100 text-slate-600'}`}
+                  >
+                    <option value="programmée">programmée</option>
+                    <option value="en_cours">en cours</option>
+                    <option value="réalisée">réalisée</option>
+                    <option value="reportée">reportée</option>
+                    <option value="annulée">annulée</option>
+                  </select>
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex justify-end gap-2">
-                    <button onClick={() => handleDelete(v.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {can('supprimer-inspections') && (
+                      <button onClick={() => handleDelete(v.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

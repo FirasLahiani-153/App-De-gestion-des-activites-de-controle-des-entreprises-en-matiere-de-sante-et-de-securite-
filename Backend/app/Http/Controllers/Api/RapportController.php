@@ -54,6 +54,17 @@ class RapportController extends Controller implements HasMiddleware
 
         $rapport = Rapport::create($validated);
 
+        // Filing a rapport for a visite means the visit actually happened —
+        // reflect that automatically instead of relying on the inspector to
+        // update the visite's status by hand.
+        $visite = $rapport->visite;
+        if ($visite && $visite->statut !== 'réalisée') {
+            $visite->update([
+                'statut' => 'réalisée',
+                'date_realisation' => $visite->date_realisation ?? now(),
+            ]);
+        }
+
         return response()->json($rapport->load('visite.entreprise:id,raison_sociale'), 201);
     }
 
