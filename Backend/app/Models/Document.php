@@ -11,10 +11,18 @@ class Document extends Model
         'chemin_fichier',
         'type_mime',
         'taille',
+        'version',
+        'parent_document_id',
+        'is_latest',
         'entreprise_id',
         'visite_id',
         'infraction_id',
         'uploaded_by',
+    ];
+
+    protected $casts = [
+        'is_latest' => 'boolean',
+        'version' => 'integer',
     ];
 
     public function entreprise()
@@ -35,5 +43,21 @@ class Document extends Model
     public function uploader()
     {
         return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    /** The root document of this version chain (null if this IS the root). */
+    public function parent()
+    {
+        return $this->belongsTo(Document::class, 'parent_document_id');
+    }
+
+    /** All other versions that share this document's root. */
+    public function versions()
+    {
+        $rootId = $this->parent_document_id ?? $this->id;
+
+        return Document::where('id', $rootId)
+            ->orWhere('parent_document_id', $rootId)
+            ->orderByDesc('version');
     }
 }

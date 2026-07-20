@@ -12,6 +12,7 @@ class Infraction extends Model
         'description',
         'recommandation',
         'gravite',
+        'is_recidive',
         'date_limite_correction',
         'statut_correction',
         'date_resolution',
@@ -22,6 +23,7 @@ class Infraction extends Model
         'date_limite_correction' => 'date',
         'date_resolution' => 'date',
         'mise_en_demeure_date' => 'date',
+        'is_recidive' => 'boolean',
     ];
 
     public function rapport()

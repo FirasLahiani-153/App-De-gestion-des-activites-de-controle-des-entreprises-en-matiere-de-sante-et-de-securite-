@@ -45,6 +45,12 @@ class RolesAndPermissionsSeeder extends Seeder
             'valider-rapports',
             'exporter-rapports',
 
+            // --- documents ---
+            'voir-documents',
+            'creer-documents',
+            'modifier-documents',
+            'supprimer-documents',
+
             // --- Non-conformités ---
             'voir-nonconformites',
             'creer-nonconformites',
@@ -95,6 +101,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'modifier-rapports',
             'exporter-rapports',
 
+            'voir-documents', 
+            'creer-documents', 
+            'modifier-documents',
+            
             'voir-nonconformites',
             'creer-nonconformites',
             'modifier-nonconformites',
@@ -114,6 +124,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'voir-rapports',
             'valider-rapports',
             'exporter-rapports',
+
+            'voir-documents', 
+            'creer-documents', 
+            'modifier-documents',
 
             'voir-nonconformites',
             'cloturer-nonconformites',

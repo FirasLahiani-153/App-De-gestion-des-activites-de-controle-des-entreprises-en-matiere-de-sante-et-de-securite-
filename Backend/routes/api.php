@@ -34,4 +34,8 @@ Route::middleware('auth:sanctum')->group(function () {
     ->name('rapports.valider');
     Route::apiResource('infractions', \App\Http\Controllers\Api\InfractionController::class);
     Route::apiResource('documents', \App\Http\Controllers\Api\DocumentController::class);
+    Route::get('documents/{document}/telecharger', [\App\Http\Controllers\Api\DocumentController::class, 'download'])
+    ->name('documents.download');
+    Route::post('documents/{document}/nouvelle-version', [\App\Http\Controllers\Api\DocumentController::class, 'nouvelleVersion'])
+        ->name('documents.nouvelle-version');
 });
