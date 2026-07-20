@@ -13,6 +13,15 @@ class VisiteController extends Controller implements HasMiddleware
 {
     private const TYPES = ['initiale', 'suivi', 'inopinée'];
     private const STATUTS = ['programmée', 'en_cours', 'réalisée', 'reportée', 'annulée'];
+    private const GOUVERNORATS = [
+        'Tunis', 'Ariana', 'Ben Arous', 'Manouba',
+        'Nabeul', 'Zaghouan', 'Bizerte',
+        'Béja', 'Jendouba', 'Le Kef', 'Siliana',
+        'Sousse', 'Monastir', 'Mahdia',
+        'Sfax', 'Kairouan', 'Kasserine', 'Sidi Bouzid',
+        'Gabès', 'Médenine', 'Tataouine',
+        'Gafsa', 'Tozeur', 'Kébili',
+    ];
 
     public static function middleware(): array
     {
@@ -43,6 +52,10 @@ class VisiteController extends Controller implements HasMiddleware
             $query->where('entreprise_id', $request->integer('entreprise_id'));
         }
 
+        if ($request->filled('lieu')) {
+            $query->where('lieu', $request->string('lieu'));
+        }
+
         // Only admin/responsable are allowed to filter by an arbitrary inspecteur;
         // an inspecteur is already scoped to themselves above.
         if ($request->filled('inspecteur_id') && ! $user->hasRole('inspecteur')) {
@@ -57,6 +70,7 @@ class VisiteController extends Controller implements HasMiddleware
         $rules = [
             'entreprise_id' => 'required|exists:entreprises,id',
             'type_visite' => ['required', Rule::in(self::TYPES)],
+            'lieu' => ['nullable', Rule::in(self::GOUVERNORATS)],
             'statut' => ['sometimes', Rule::in(self::STATUTS)],
             'date_prevue' => 'required|date',
             'date_realisation' => 'nullable|date',
@@ -106,6 +120,7 @@ class VisiteController extends Controller implements HasMiddleware
         $rules = [
             'entreprise_id' => 'sometimes|exists:entreprises,id',
             'type_visite' => ['sometimes', Rule::in(self::TYPES)],
+            'lieu' => ['sometimes', 'nullable', Rule::in(self::GOUVERNORATS)],
             'statut' => ['sometimes', Rule::in(self::STATUTS)],
             'date_prevue' => 'sometimes|date',
             'date_realisation' => 'nullable|date',

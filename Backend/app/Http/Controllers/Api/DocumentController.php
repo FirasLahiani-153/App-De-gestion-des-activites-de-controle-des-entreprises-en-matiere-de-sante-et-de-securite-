@@ -13,7 +13,7 @@ class DocumentController extends Controller implements HasMiddleware
 {
     /** Keep the allowed file types conservative and explicit. */
     private const ALLOWED_MIMES = 'pdf,doc,docx,jpg,jpeg,png';
-    private const MAX_KB = 10240; // 10 MB
+    private const MAX_KB = 20480; // 20 MB
 
     public static function middleware(): array
     {
@@ -96,6 +96,24 @@ class DocumentController extends Controller implements HasMiddleware
 
         return Storage::disk('local')->download($document->chemin_fichier, $document->nom);
     }
+
+    // GET /api/documents/{id}/apercu
+    // Streams the file inline for browser preview (PDF, images, etc.) rather than forcing 
+    
+
+        public function apercu(string $id)
+    {
+        $document = Document::findOrFail($id);
+ 
+        if (! Storage::disk('local')->exists($document->chemin_fichier)) {
+            abort(404, 'Fichier introuvable sur le serveur.');
+        }
+ 
+        return Storage::disk('local')->response($document->chemin_fichier, $document->nom, [
+            'Content-Type' => $document->type_mime,
+        ]);
+    }
+
 
     public function update(Request $request, string $id)
     {

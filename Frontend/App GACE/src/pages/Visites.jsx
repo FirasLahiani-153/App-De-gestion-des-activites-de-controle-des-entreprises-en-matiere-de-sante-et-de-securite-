@@ -11,10 +11,21 @@ const STATUT_BADGE = {
   'annulée': 'bg-red-100 text-red-700',
 }
 
+const GOUVERNORATS = [
+  'Tunis', 'Ariana', 'Ben Arous', 'Manouba',
+  'Nabeul', 'Zaghouan', 'Bizerte',
+  'Béja', 'Jendouba', 'Le Kef', 'Siliana',
+  'Sousse', 'Monastir', 'Mahdia',
+  'Sfax', 'Kairouan', 'Kasserine', 'Sidi Bouzid',
+  'Gabès', 'Médenine', 'Tataouine',
+  'Gafsa', 'Tozeur', 'Kébili',
+]
+
 const emptyForm = {
   entreprise_id: '',
   inspecteur_id: '',
   type_visite: 'initiale',
+  lieu: '',
   statut: 'programmée',
   date_prevue: '',
 }
@@ -25,8 +36,9 @@ export default function Visites() {
   const canAssignInspecteur = can('voir-utilisateurs')
 
   const [visites, setVisites] = useState([])
-  const [meta, setMeta] = useState({ current_page: 1, last_page: 1 })
+  const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 })
   const [statutFilter, setStatutFilter] = useState('')
+  const [entrepriseFilter, setEntrepriseFilter] = useState('')
   const [entreprises, setEntreprises] = useState([])
   const [inspecteurs, setInspecteurs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -38,11 +50,11 @@ export default function Visites() {
     fetchData(1)
   }, [])
 
-  const fetchData = async (page = 1, statut = statutFilter) => {
+  const fetchData = async (page = 1, statut = statutFilter, entrepriseId = entrepriseFilter) => {
     setLoading(true)
     try {
       const calls = [
-        api.get('/visites', { params: { page, statut: statut || undefined } }),
+        api.get('/visites', { params: { page, statut: statut || undefined, entreprise_id: entrepriseId || undefined } }),
         api.get('/entreprises', { params: { per_page: 100 } }),
       ]
       // Only fetch the full user list if we actually need it for the assignment dropdown —
@@ -53,7 +65,7 @@ export default function Visites() {
 
       const results = await Promise.all(calls)
       setVisites(results[0].data.data)
-      setMeta({ current_page: results[0].data.current_page, last_page: results[0].data.last_page })
+      setMeta({ current_page: results[0].data.current_page, last_page: results[0].data.last_page, total: results[0].data.total })
       setEntreprises(results[1].data.data)
       if (canAssignInspecteur) {
         setInspecteurs(results[2].data.filter(u => u.roles?.some(r => r.name === 'inspecteur')))
@@ -67,7 +79,12 @@ export default function Visites() {
 
   const handleFilterChange = (statut) => {
     setStatutFilter(statut)
-    fetchData(1, statut)
+    fetchData(1, statut, entrepriseFilter)
+  }
+
+  const handleEntrepriseFilterChange = (entrepriseId) => {
+    setEntrepriseFilter(entrepriseId)
+    fetchData(1, statutFilter, entrepriseId)
   }
 
   const handleSubmit = async (e) => {
@@ -163,6 +180,22 @@ export default function Visites() {
         ))}
       </div>
 
+      <div className="flex items-center gap-3">
+        <select
+          className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700"
+          value={entrepriseFilter}
+          onChange={e => handleEntrepriseFilterChange(e.target.value)}
+        >
+          <option value="">Toutes les entreprises</option>
+          {entreprises.map(e => <option key={e.id} value={e.id}>{e.raison_sociale}</option>)}
+        </select>
+        {entrepriseFilter && (
+          <span className="text-sm text-slate-500">
+            <span className="font-semibold text-slate-800">{meta.total}</span> visite{meta.total !== 1 ? 's' : ''} pour cette entreprise
+          </span>
+        )}
+      </div>
+
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-xl w-full max-w-md">
@@ -197,6 +230,14 @@ export default function Visites() {
                   <option value="initiale">Initiale</option>
                   <option value="suivi">De suivi</option>
                   <option value="inopinée">Inopinée</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Lieu (gouvernorat)</label>
+                <select className="w-full border p-2 rounded"
+                  value={formData.lieu} onChange={e => setFormData({...formData, lieu: e.target.value})}>
+                  <option value="">Sélectionner...</option>
+                  {GOUVERNORATS.map(g => <option key={g} value={g}>{g}</option>)}
                 </select>
               </div>
               <div>
@@ -249,6 +290,7 @@ export default function Visites() {
               <th className="px-6 py-4 font-medium">Entreprise</th>
               <th className="px-6 py-4 font-medium">Inspecteur</th>
               <th className="px-6 py-4 font-medium">Type</th>
+              <th className="px-6 py-4 font-medium">Lieu</th>
               <th className="px-6 py-4 font-medium">Date Prévue</th>
               <th className="px-6 py-4 font-medium">Statut</th>
               <th className="px-6 py-4 font-medium text-right">Actions</th>
@@ -256,13 +298,14 @@ export default function Visites() {
           </thead>
           <tbody className="divide-y divide-slate-200">
             {visites.length === 0 && (
-              <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-400">Aucune visite trouvée</td></tr>
+              <tr><td colSpan={7} className="px-6 py-8 text-center text-slate-400">Aucune visite trouvée</td></tr>
             )}
             {visites.map(v => (
               <tr key={v.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4 font-medium text-slate-900">{v.entreprise?.raison_sociale}</td>
                 <td className="px-6 py-4">{v.inspecteur?.name}</td>
                 <td className="px-6 py-4 capitalize">{v.type_visite}</td>
+                <td className="px-6 py-4">{v.lieu || '—'}</td>
                 <td className="px-6 py-4">{new Date(v.date_prevue).toLocaleDateString('fr-FR')}</td>
                 <td className="px-6 py-4">
                   <select

@@ -92,7 +92,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'voir-entreprises',
 
             'voir-inspections',
-            'creer-inspections',
+            
             'modifier-inspections',
             'planifier-inspections',
 
@@ -104,7 +104,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'voir-documents', 
             'creer-documents', 
             'modifier-documents',
-            
+
             'voir-nonconformites',
             'creer-nonconformites',
             'modifier-nonconformites',
@@ -120,12 +120,12 @@ class RolesAndPermissionsSeeder extends Seeder
 
             'voir-inspections',
             'supprimer-inspections',
-            
+            'creer-inspections',
             'voir-rapports',
             'valider-rapports',
             'exporter-rapports',
 
-            'voir-documents', 
+            'voir-documents',
             'creer-documents', 
             'modifier-documents',
 

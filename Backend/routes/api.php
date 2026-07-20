@@ -26,6 +26,9 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // CRUD API Routes
+
+    Route::get('dashboard', [\App\Http\Controllers\Api\DashboardController::class, 'index'])
+    ->name('dashboard');
     Route::apiResource('users', \App\Http\Controllers\Api\UserController::class);
     Route::apiResource('entreprises', \App\Http\Controllers\Api\EntrepriseController::class);
     Route::apiResource('visites', \App\Http\Controllers\Api\VisiteController::class);
@@ -38,4 +41,6 @@ Route::middleware('auth:sanctum')->group(function () {
     ->name('documents.download');
     Route::post('documents/{document}/nouvelle-version', [\App\Http\Controllers\Api\DocumentController::class, 'nouvelleVersion'])
         ->name('documents.nouvelle-version');
+    Route::get('documents/{document}/apercu', [\App\Http\Controllers\Api\DocumentController::class, 'apercu'])
+    ->name('documents.apercu');
 });

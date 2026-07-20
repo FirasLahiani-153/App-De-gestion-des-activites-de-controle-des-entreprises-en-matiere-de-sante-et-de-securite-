@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../api'
-import { Plus, Trash2, Download, History, UploadCloud } from 'lucide-react'
+import { Plus, Trash2, Download, Eye, History, UploadCloud } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 const emptyForm = {
@@ -8,6 +8,9 @@ const emptyForm = {
   entreprise_id: '',
   fichier: null,
 }
+
+// Only these render natively in a browser tab; Word docs fall back to download.
+const PREVIEWABLE_MIMES = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
 
 export default function Documents() {
   const { user, can, hasRole } = useAuth()
@@ -93,6 +96,24 @@ export default function Documents() {
       window.URL.revokeObjectURL(url)
     } catch (err) {
       alert('Erreur lors du téléchargement')
+    }
+  }
+
+  const handlePreview = async (doc) => {
+    if (!PREVIEWABLE_MIMES.includes(doc.type_mime)) {
+      alert("Aperçu non disponible pour ce type de fichier (Word). Téléchargez-le pour le consulter.")
+      return
+    }
+    try {
+      const response = await api.get(`/documents/${doc.id}/apercu`, { responseType: 'blob' })
+      const blob = new Blob([response.data], { type: doc.type_mime })
+      const url = window.URL.createObjectURL(blob)
+      window.open(url, '_blank')
+      // Give the new tab time to load before revoking; browsers keep the blob alive
+      // as long as the tab holds a reference, but we clean up eventually to avoid leaks.
+      setTimeout(() => window.URL.revokeObjectURL(url), 60000)
+    } catch (err) {
+      alert("Erreur lors de l'aperçu du document")
     }
   }
 
@@ -211,9 +232,14 @@ export default function Documents() {
                         {v.uploader?.name} — {new Date(v.created_at).toLocaleDateString('fr-FR')}
                       </div>
                     </div>
-                    <button onClick={() => handleDownload(v)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
-                      <Download className="w-4 h-4" />
-                    </button>
+                    <div className="flex gap-1">
+                      <button onClick={() => handlePreview(v)} title="Aperçu" className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg">
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDownload(v)} title="Télécharger" className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -245,6 +271,9 @@ export default function Documents() {
                 <td className="px-6 py-4">{doc.uploader?.name}</td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex justify-end gap-1">
+                    <button onClick={() => handlePreview(doc)} title="Aperçu" className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg">
+                      <Eye className="w-4 h-4" />
+                    </button>
                     <button onClick={() => handleDownload(doc)} title="Télécharger" className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
                       <Download className="w-4 h-4" />
                     </button>

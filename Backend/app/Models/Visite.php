@@ -10,6 +10,7 @@ class Visite extends Model
         'entreprise_id',
         'inspecteur_id',
         'type_visite',
+        'lieu',
         'statut',
         'date_prevue',
         'date_realisation',
