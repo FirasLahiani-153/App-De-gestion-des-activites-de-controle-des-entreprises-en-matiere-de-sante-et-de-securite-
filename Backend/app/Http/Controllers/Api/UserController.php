@@ -42,6 +42,9 @@ class UserController extends Controller implements HasMiddleware
             'phone' => 'nullable|string|max:30',
             'matricule' => 'nullable|string|max:100|unique:users',
             'role' => ['required', 'string', Rule::in(self::ASSIGNABLE_ROLES)],
+            // Only meaningful when role = 'responsable': lets them also carry
+            // the inspecteur role, so a responsable can be assigned visits directly.
+            'peut_inspecter' => 'sometimes|boolean',
         ]);
 
         // Only someone with explicit rights to assign roles can hand out
@@ -61,7 +64,11 @@ class UserController extends Controller implements HasMiddleware
             'is_active' => true,
         ]);
 
-        $user->assignRole($validated['role']);
+        $roles = [$validated['role']];
+        if ($validated['role'] === 'responsable' && ($validated['peut_inspecter'] ?? false)) {
+            $roles[] = 'inspecteur';
+        }
+        $user->syncRoles($roles);
 
         return response()->json($user->load('roles:id,name'), 201);
     }
@@ -82,24 +89,33 @@ class UserController extends Controller implements HasMiddleware
             'matricule' => ['sometimes', 'nullable', 'string', 'max:100', Rule::unique('users')->ignore($user->id)],
             'is_active' => 'sometimes|boolean',
             'role' => ['sometimes', 'string', Rule::in(self::ASSIGNABLE_ROLES)],
+            'peut_inspecter' => 'sometimes|boolean',
         ]);
 
-        if (array_key_exists('role', $validated)) {
+        if (array_key_exists('role', $validated) || array_key_exists('peut_inspecter', $validated)) {
             if (! $request->user()->can('assigner-roles')) {
                 return response()->json([
                     'message' => "Vous n'avez pas la permission d'attribuer des rôles.",
                 ], 403);
             }
 
+            $newRole = $validated['role'] ?? $user->getRoleNames()->first(fn ($r) => $r !== 'inspecteur') ?? $user->getRoleNames()->first();
+
             // Don't let someone strip their own admin role and lock themselves out.
-            if ($request->user()->is($user) && $validated['role'] !== 'admin' && $user->hasRole('admin')) {
+            if ($request->user()->is($user) && $newRole !== 'admin' && $user->hasRole('admin')) {
                 return response()->json([
                     'message' => 'Vous ne pouvez pas retirer votre propre rôle administrateur.',
                 ], 422);
             }
 
-            $user->syncRoles([$validated['role']]);
-            unset($validated['role']);
+            $roles = [$newRole];
+            $peutInspecter = $validated['peut_inspecter'] ?? $user->hasRole('inspecteur');
+            if ($newRole === 'responsable' && $peutInspecter) {
+                $roles[] = 'inspecteur';
+            }
+
+            $user->syncRoles($roles);
+            unset($validated['role'], $validated['peut_inspecter']);
         }
 
         $user->update($validated);

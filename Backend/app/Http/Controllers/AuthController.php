@@ -156,6 +156,13 @@ class AuthController extends Controller
      */
     private function formatUser(User $user): array
     {
+        $roleNames = $user->getRoleNames(); // e.g. ['responsable', 'inspecteur']
+
+        // "Primary" role for display purposes: prefer the higher-authority role
+        // when a user carries more than one (e.g. responsable who also inspects).
+        $priority = ['admin', 'responsable', 'inspecteur'];
+        $primaryRole = collect($priority)->first(fn ($r) => $roleNames->contains($r)) ?? $roleNames->first();
+
         return [
             'id'         => $user->id,
             'name'       => $user->name,
@@ -163,7 +170,8 @@ class AuthController extends Controller
             'email'      => $user->email,
             'phone'      => $user->phone,
             'is_active'  => $user->is_active,
-            'role'       => $user->getRoleNames()->first(),        // single role per user
+            'role'       => $primaryRole,           // kept for backward compatibility (display)
+            'roles'      => $roleNames,              // full list — a user may carry more than one
             'permissions'=> $user->getAllPermissions()->pluck('name'),
             'created_at' => $user->created_at,
         ];

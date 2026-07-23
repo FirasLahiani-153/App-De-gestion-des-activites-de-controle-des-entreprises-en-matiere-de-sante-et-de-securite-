@@ -53,10 +53,11 @@ export function AuthProvider({ children }) {
   }
 
   /**
-   * Check if the current user has a given role.
+   * Check if the current user has a given role. A user may carry more than one
+   * (e.g. a responsable who also inspects) — this checks membership, not equality.
    * Prefer `can()` for access control — roles can change composition later.
    */
-  const hasRole = (role) => user?.role === role
+  const hasRole = (role) => Array.isArray(user?.roles) && user.roles.includes(role)
 
   return (
     <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser, can, hasRole }}>

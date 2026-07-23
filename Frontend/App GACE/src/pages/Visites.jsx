@@ -24,7 +24,7 @@ const GOUVERNORATS = [
 const emptyForm = {
   entreprise_id: '',
   inspecteur_id: '',
-  type_visite: 'initiale',
+  type_visite: '',
   lieu: '',
   statut: 'programmée',
   date_prevue: '',
@@ -41,6 +41,7 @@ export default function Visites() {
   const [entrepriseFilter, setEntrepriseFilter] = useState('')
   const [entreprises, setEntreprises] = useState([])
   const [inspecteurs, setInspecteurs] = useState([])
+  const [typeVisiteOptions, setTypeVisiteOptions] = useState({}) // { code: { fr, ar } }
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState(emptyForm)
@@ -48,6 +49,7 @@ export default function Visites() {
 
   useEffect(() => {
     fetchData(1)
+    api.get('/visites/types').then(res => setTypeVisiteOptions(res.data)).catch(err => console.error(err))
   }, [])
 
   const fetchData = async (page = 1, statut = statutFilter, entrepriseId = entrepriseFilter) => {
@@ -224,12 +226,15 @@ export default function Visites() {
                 </p>
               )}
               <div>
-                <label className="block text-sm font-medium mb-1">Type de visite</label>
-                <select className="w-full border p-2 rounded"
+                <label className="block text-sm font-medium mb-1">Type de visite / نوع الزيارة</label>
+                <select required className="w-full border p-2 rounded"
                   value={formData.type_visite} onChange={e => setFormData({...formData, type_visite: e.target.value})}>
-                  <option value="initiale">Initiale</option>
-                  <option value="suivi">De suivi</option>
-                  <option value="inopinée">Inopinée</option>
+                  <option value="">Sélectionner...</option>
+                  {Object.entries(typeVisiteOptions)
+                    .sort((a, b) => a[1].fr.localeCompare(b[1].fr))
+                    .map(([code, labels]) => (
+                      <option key={code} value={code}>{labels.fr} / {labels.ar}</option>
+                    ))}
                 </select>
               </div>
               <div>
@@ -304,7 +309,11 @@ export default function Visites() {
               <tr key={v.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4 font-medium text-slate-900">{v.entreprise?.raison_sociale}</td>
                 <td className="px-6 py-4">{v.inspecteur?.name}</td>
-                <td className="px-6 py-4 capitalize">{v.type_visite}</td>
+                <td className="px-6 py-4">
+                  {typeVisiteOptions[v.type_visite]
+                    ? `${typeVisiteOptions[v.type_visite].fr} / ${typeVisiteOptions[v.type_visite].ar}`
+                    : v.type_visite}
+                </td>
                 <td className="px-6 py-4">{v.lieu || '—'}</td>
                 <td className="px-6 py-4">{new Date(v.date_prevue).toLocaleDateString('fr-FR')}</td>
                 <td className="px-6 py-4">

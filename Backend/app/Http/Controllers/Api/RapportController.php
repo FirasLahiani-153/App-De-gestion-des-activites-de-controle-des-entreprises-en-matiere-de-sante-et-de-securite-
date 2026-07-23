@@ -43,6 +43,7 @@ class RapportController extends Controller implements HasMiddleware
             'date_redaction' => 'required|date',
             'statut' => ['sometimes', Rule::in(self::STATUTS)],
             'resume' => 'nullable|string',
+            'niveau_risque' => ['nullable', Rule::in(['faible', 'moyen', 'eleve'])],
         ]);
 
         // A freshly created report can never start as already validated/sent —
@@ -53,6 +54,14 @@ class RapportController extends Controller implements HasMiddleware
         }
 
         $rapport = Rapport::create($validated);
+
+        // The inspector's risk assessment for this visit becomes the entreprise's
+        // current risk level — the report is the source of truth going forward,
+        // not a manually-set field on the entreprise.
+        if (! empty($validated['niveau_risque'])) {
+            $rapport->loadMissing('visite.entreprise');
+            $rapport->visite?->entreprise?->update(['niveau_risque' => $validated['niveau_risque']]);
+        }
 
         // Filing a rapport for a visite means the visit actually happened —
         // reflect that automatically instead of relying on the inspector to
@@ -94,9 +103,15 @@ class RapportController extends Controller implements HasMiddleware
                 Rule::in(['brouillon', 'en_attente_validation']), // can't self-set validé/envoyé here
             ],
             'resume' => 'nullable|string',
+            'niveau_risque' => ['sometimes', 'nullable', Rule::in(['faible', 'moyen', 'eleve'])],
         ]);
 
         $rapport->update($validated);
+
+        if (! empty($validated['niveau_risque'])) {
+            $rapport->loadMissing('visite.entreprise');
+            $rapport->visite?->entreprise?->update(['niveau_risque' => $validated['niveau_risque']]);
+        }
 
         return response()->json($rapport->fresh()->load('visite.entreprise:id,raison_sociale'));
     }

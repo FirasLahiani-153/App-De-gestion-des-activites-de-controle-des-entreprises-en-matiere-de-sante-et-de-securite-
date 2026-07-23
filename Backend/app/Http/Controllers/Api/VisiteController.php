@@ -11,7 +11,6 @@ use Illuminate\Validation\Rule;
 
 class VisiteController extends Controller implements HasMiddleware
 {
-    private const TYPES = ['initiale', 'suivi', 'inopinée'];
     private const STATUTS = ['programmée', 'en_cours', 'réalisée', 'reportée', 'annulée'];
     private const GOUVERNORATS = [
         'Tunis', 'Ariana', 'Ben Arous', 'Manouba',
@@ -26,11 +25,29 @@ class VisiteController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware('permission:voir-inspections', only: ['index', 'show']),
+            new Middleware('permission:voir-inspections', only: ['index', 'show', 'types', 'gouvernorats']),
             new Middleware('permission:creer-inspections', only: ['store']),
             new Middleware('permission:modifier-inspections', only: ['update']),
             new Middleware('permission:supprimer-inspections', only: ['destroy']),
         ];
+    }
+
+    /**
+     * GET /api/visites/types
+     * Reference data for the frontend's bilingual type_visite dropdown.
+     */
+    public function types()
+    {
+        return response()->json(config('visit_types'));
+    }
+
+    /**
+     * GET /api/visites/gouvernorats
+     * Reference data for the frontend's lieu dropdown.
+     */
+    public function gouvernorats()
+    {
+        return response()->json(self::GOUVERNORATS);
     }
 
     public function index(Request $request)
@@ -69,7 +86,7 @@ class VisiteController extends Controller implements HasMiddleware
     {
         $rules = [
             'entreprise_id' => 'required|exists:entreprises,id',
-            'type_visite' => ['required', Rule::in(self::TYPES)],
+            'type_visite' => ['required', Rule::in(array_keys(config('visit_types')))],
             'lieu' => ['nullable', Rule::in(self::GOUVERNORATS)],
             'statut' => ['sometimes', Rule::in(self::STATUTS)],
             'date_prevue' => 'required|date',
@@ -119,7 +136,7 @@ class VisiteController extends Controller implements HasMiddleware
 
         $rules = [
             'entreprise_id' => 'sometimes|exists:entreprises,id',
-            'type_visite' => ['sometimes', Rule::in(self::TYPES)],
+            'type_visite' => ['sometimes', Rule::in(array_keys(config('visit_types')))],
             'lieu' => ['sometimes', 'nullable', Rule::in(self::GOUVERNORATS)],
             'statut' => ['sometimes', Rule::in(self::STATUTS)],
             'date_prevue' => 'sometimes|date',

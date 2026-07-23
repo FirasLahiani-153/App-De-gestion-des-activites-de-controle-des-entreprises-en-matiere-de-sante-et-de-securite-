@@ -12,6 +12,7 @@ class Rapport extends Model
         'date_redaction',
         'statut',
         'resume',
+        'niveau_risque',
         'pdf_path',
         'validated_by',
         'validated_at',

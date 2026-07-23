@@ -31,6 +31,8 @@ Route::middleware('auth:sanctum')->group(function () {
     ->name('dashboard');
     Route::apiResource('users', \App\Http\Controllers\Api\UserController::class);
     Route::apiResource('entreprises', \App\Http\Controllers\Api\EntrepriseController::class);
+    Route::get('visites/types', [\App\Http\Controllers\Api\VisiteController::class, 'types'])->name('visites.types');
+    Route::get('visites/gouvernorats', [\App\Http\Controllers\Api\VisiteController::class, 'gouvernorats'])->name('visites.gouvernorats');
     Route::apiResource('visites', \App\Http\Controllers\Api\VisiteController::class);
     Route::apiResource('rapports', \App\Http\Controllers\Api\RapportController::class);
     Route::post('rapports/{rapport}/valider', [\App\Http\Controllers\Api\RapportController::class, 'valider'])

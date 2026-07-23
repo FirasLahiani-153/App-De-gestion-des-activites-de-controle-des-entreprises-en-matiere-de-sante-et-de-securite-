@@ -15,7 +15,15 @@ const emptyForm = {
   reference: '',
   date_redaction: new Date().toISOString().slice(0, 16),
   resume: '',
+  niveau_risque: '',
 }
+
+const RISK_LEVELS = [
+  { value: '', label: 'Non évalué' },
+  { value: 'faible', label: 'Faible' },
+  { value: 'moyen', label: 'Moyen' },
+  { value: 'eleve', label: 'Élevé' },
+]
 
 export default function Rapports() {
   const { can } = useAuth()
@@ -142,6 +150,14 @@ export default function Rapports() {
                 <label className="block text-sm font-medium mb-1">Résumé / Conclusion</label>
                 <textarea className="w-full border p-2 rounded" rows="3"
                   value={formData.resume} onChange={e => setFormData({...formData, resume: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Niveau de risque de l'entreprise</label>
+                <select className="w-full border p-2 rounded"
+                  value={formData.niveau_risque} onChange={e => setFormData({...formData, niveau_risque: e.target.value})}>
+                  {RISK_LEVELS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+                <p className="text-xs text-slate-400 mt-1">Sera appliqué au profil de l'entreprise.</p>
               </div>
               <div className="flex justify-end gap-2 mt-6">
                 <button type="button" onClick={() => { setShowForm(false); setFormData(emptyForm) }} className="px-4 py-2 text-slate-600">Annuler</button>
