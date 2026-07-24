@@ -19,7 +19,7 @@ class VisiteController extends Controller implements HasMiddleware
         'Sousse', 'Monastir', 'Mahdia',
         'Sfax', 'Kairouan', 'Kasserine', 'Sidi Bouzid',
         'Gabès', 'Médenine', 'Tataouine',
-        'Gafsa', 'Tozeur', 'Kébili',
+        'Gafsa', 'Tozeur', 'Kébili','Djerba'
     ];
 
     public static function middleware(): array
