@@ -7,7 +7,13 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     libzip-dev \
-    && docker-php-ext-install pdo_mysql zip mbstring
+    libonig-dev \
+    zlib1g-dev \
+    && docker-php-ext-install \
+        pdo_mysql \
+        zip \
+        mbstring \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
