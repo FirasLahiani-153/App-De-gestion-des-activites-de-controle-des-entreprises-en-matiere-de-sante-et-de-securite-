@@ -13,12 +13,12 @@ class DocumentController extends Controller implements HasMiddleware
 {
     /** Keep the allowed file types conservative and explicit. */
     private const ALLOWED_MIMES = 'pdf,doc,docx,jpg,jpeg,png';
-    private const MAX_KB = 20480; // 20 MB
+    private const MAX_KB = 10240; // 10 MB
 
     public static function middleware(): array
     {
         return [
-            new Middleware('permission:voir-documents', only: ['index', 'show', 'download']),
+            new Middleware('permission:voir-documents', only: ['index', 'show', 'download', 'apercu']),
             new Middleware('permission:creer-documents', only: ['store', 'nouvelleVersion']),
             new Middleware('permission:modifier-documents', only: ['update']),
             new Middleware('permission:supprimer-documents', only: ['destroy']),
@@ -55,7 +55,7 @@ class DocumentController extends Controller implements HasMiddleware
         // Private disk — files are NOT publicly guessable/accessible; must go through
         // the download() endpoint below (permission-checked). Matches spec 4.7:
         // "Téléchargement sécurisé".
-        $path = $file->store('documents', 'local');
+        $path = $file->store('documents', config('filesystems.default'));
 
         $document = Document::create([
             'nom' => $validated['nom'],
@@ -90,30 +90,30 @@ class DocumentController extends Controller implements HasMiddleware
     {
         $document = Document::findOrFail($id);
 
-        if (! Storage::disk('local')->exists($document->chemin_fichier)) {
+        if (! Storage::disk(config('filesystems.default'))->exists($document->chemin_fichier)) {
             abort(404, 'Fichier introuvable sur le serveur.');
         }
 
-        return Storage::disk('local')->download($document->chemin_fichier, $document->nom);
+        return Storage::disk(config('filesystems.default'))->download($document->chemin_fichier, $document->nom);
     }
 
-    // GET /api/documents/{id}/apercu
-    // Streams the file inline for browser preview (PDF, images, etc.) rather than forcing 
-    
-
-        public function apercu(string $id)
+    /**
+     * GET /api/documents/{id}/apercu
+     * Streams the file for INLINE viewing (opens in browser, e.g. PDF viewer)
+     * instead of forcing a download — same permission/security model as download().
+     */
+    public function apercu(string $id)
     {
         $document = Document::findOrFail($id);
- 
-        if (! Storage::disk('local')->exists($document->chemin_fichier)) {
+
+        if (! Storage::disk(config('filesystems.default'))->exists($document->chemin_fichier)) {
             abort(404, 'Fichier introuvable sur le serveur.');
         }
- 
-        return Storage::disk('local')->response($document->chemin_fichier, $document->nom, [
+
+        return Storage::disk(config('filesystems.default'))->response($document->chemin_fichier, $document->nom, [
             'Content-Type' => $document->type_mime,
         ]);
     }
-
 
     public function update(Request $request, string $id)
     {
@@ -149,7 +149,7 @@ class DocumentController extends Controller implements HasMiddleware
         $maxVersion = Document::where('id', $rootId)->orWhere('parent_document_id', $rootId)->max('version');
 
         $file = $validated['fichier'];
-        $path = $file->store('documents', 'local');
+        $path = $file->store('documents', config('filesystems.default'));
 
         // Demote every existing version in this chain, then create the new latest one.
         Document::where('id', $rootId)->orWhere('parent_document_id', $rootId)->update(['is_latest' => false]);
@@ -184,7 +184,7 @@ class DocumentController extends Controller implements HasMiddleware
             ], 403);
         }
 
-        Storage::disk('local')->delete($document->chemin_fichier);
+        Storage::disk(config('filesystems.default'))->delete($document->chemin_fichier);
 
         // If we're deleting the current latest version of a chain, promote the next most recent.
         if ($document->is_latest) {
