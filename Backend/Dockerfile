@@ -1,7 +1,7 @@
 FROM richarvey/nginx-php-fpm:php8.3
 
 # Copy the Laravel app
-COPY Backend/ /var/www/html/
+COPY . /var/www/html/
 
 # Laravel-specific settings for this image
 ENV WEBROOT /var/www/html/public
@@ -18,3 +18,4 @@ ENV SKIP_COMPOSER 0
 ENV SKIP_CHOWN 0
 
 EXPOSE 8080
+CMD ["/start.sh"]
