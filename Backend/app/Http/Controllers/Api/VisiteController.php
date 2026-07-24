@@ -12,15 +12,6 @@ use Illuminate\Validation\Rule;
 class VisiteController extends Controller implements HasMiddleware
 {
     private const STATUTS = ['programmée', 'en_cours', 'réalisée', 'reportée', 'annulée'];
-    private const GOUVERNORATS = [
-        'Tunis', 'Ariana', 'Ben Arous', 'Manouba',
-        'Nabeul', 'Zaghouan', 'Bizerte',
-        'Béja', 'Jendouba', 'Le Kef', 'Siliana',
-        'Sousse', 'Monastir', 'Mahdia',
-        'Sfax', 'Kairouan', 'Kasserine', 'Sidi Bouzid',
-        'Gabès', 'Médenine', 'Tataouine',
-        'Gafsa', 'Tozeur', 'Kébili','Djerba'
-    ];
 
     public static function middleware(): array
     {
@@ -47,7 +38,7 @@ class VisiteController extends Controller implements HasMiddleware
      */
     public function gouvernorats()
     {
-        return response()->json(self::GOUVERNORATS);
+        return response()->json(config('lieux'));
     }
 
     public function index(Request $request)
@@ -87,7 +78,7 @@ class VisiteController extends Controller implements HasMiddleware
         $rules = [
             'entreprise_id' => 'required|exists:entreprises,id',
             'type_visite' => ['required', Rule::in(array_keys(config('visit_types')))],
-            'lieu' => ['nullable', Rule::in(self::GOUVERNORATS)],
+            'lieu' => ['nullable', Rule::in(config('lieux'))],
             'statut' => ['sometimes', Rule::in(self::STATUTS)],
             'date_prevue' => 'required|date',
             'date_realisation' => 'nullable|date',
@@ -137,7 +128,7 @@ class VisiteController extends Controller implements HasMiddleware
         $rules = [
             'entreprise_id' => 'sometimes|exists:entreprises,id',
             'type_visite' => ['sometimes', Rule::in(array_keys(config('visit_types')))],
-            'lieu' => ['sometimes', 'nullable', Rule::in(self::GOUVERNORATS)],
+            'lieu' => ['sometimes', 'nullable', Rule::in(config('lieux'))],
             'statut' => ['sometimes', Rule::in(self::STATUTS)],
             'date_prevue' => 'sometimes|date',
             'date_realisation' => 'nullable|date',

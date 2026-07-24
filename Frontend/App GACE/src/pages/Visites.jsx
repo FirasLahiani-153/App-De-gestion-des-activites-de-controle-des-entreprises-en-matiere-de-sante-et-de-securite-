@@ -11,16 +11,6 @@ const STATUT_BADGE = {
   'annulée': 'bg-red-100 text-red-700',
 }
 
-const GOUVERNORATS = [
-  'Tunis', 'Ariana', 'Ben Arous', 'Manouba',
-  'Nabeul', 'Zaghouan', 'Bizerte',
-  'Béja', 'Jendouba', 'Le Kef', 'Siliana',
-  'Sousse', 'Monastir', 'Mahdia',
-  'Sfax', 'Kairouan', 'Kasserine', 'Sidi Bouzid',
-  'Gabès', 'Médenine', 'Tataouine',
-  'Gafsa', 'Tozeur', 'Kébili',
-]
-
 const emptyForm = {
   entreprise_id: '',
   inspecteur_id: '',
@@ -42,6 +32,7 @@ export default function Visites() {
   const [entreprises, setEntreprises] = useState([])
   const [inspecteurs, setInspecteurs] = useState([])
   const [typeVisiteOptions, setTypeVisiteOptions] = useState({}) // { code: { fr, ar } }
+  const [lieuxOptions, setLieuxOptions] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState(emptyForm)
@@ -50,6 +41,7 @@ export default function Visites() {
   useEffect(() => {
     fetchData(1)
     api.get('/visites/types').then(res => setTypeVisiteOptions(res.data)).catch(err => console.error(err))
+    api.get('/visites/gouvernorats').then(res => setLieuxOptions(res.data)).catch(err => console.error(err))
   }, [])
 
   const fetchData = async (page = 1, statut = statutFilter, entrepriseId = entrepriseFilter) => {
@@ -242,7 +234,7 @@ export default function Visites() {
                 <select className="w-full border p-2 rounded"
                   value={formData.lieu} onChange={e => setFormData({...formData, lieu: e.target.value})}>
                   <option value="">Sélectionner...</option>
-                  {GOUVERNORATS.map(g => <option key={g} value={g}>{g}</option>)}
+                  {lieuxOptions.map(g => <option key={g} value={g}>{g}</option>)}
                 </select>
               </div>
               <div>
